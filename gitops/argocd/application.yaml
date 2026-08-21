@@ -1,0 +1,38 @@
+# Lives in the CLUSTER admin's bootstrap repo (or applied once by hand).
+# ArgoCD polls/webhooks the GitOps config repo and reconciles the cluster
+# to match it -- this is the entire "CD Pipeline / GitOps" box in the
+# architecture diagram. There is no push-based deploy step anywhere.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-app-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Auduj01/RealTime-Project-06-gitops.git
+    targetRevision: main
+    path: apps/sample-app
+    helm:
+      valueFiles:
+        - values-prod.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sample-app
+
+  syncPolicy:
+    automated:
+      prune: true       # remove resources deleted from git
+      selfHeal: true     # revert manual kubectl edits back to git state
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

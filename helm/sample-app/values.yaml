@@ -1,0 +1,104 @@
+# Default values — safe for a local/dev cluster (kind/minikube).
+# Override per environment with values-staging.yaml / values-prod.yaml.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/auduj01/realtime-project-06
+  tag: "latest"           # ALWAYS pinned to a real sha/semver tag in prod
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-cred
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/actuator/prometheus"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: sample-app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: sample-app-tls
+      hosts:
+        - sample-app.example.com
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Kubernetes uses these to know when the pod is alive vs. ready for traffic.
+# Backed by Spring Boot Actuator — see docs/GUIDE.md Step 0.
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8000
+  initialDelaySeconds: 20
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Non-secret config -> ConfigMap. Anything sensitive is NEVER put here;
+# it comes from an externally-managed Secret (see secret.yaml template
+# and docs/GUIDE.md "Secrets management" section).
+config:
+  APP_ENV: production
+
+# Reference to a Secret created OUTSIDE this chart (sealed-secrets /
+# External Secrets Operator / SOPS) — the chart only reads it by name.
+existingSecret: sample-app-secrets
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

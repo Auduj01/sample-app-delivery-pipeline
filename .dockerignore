@@ -1,0 +1,12 @@
+.git
+.github
+target
+*.md
+Steps
+helm
+gitops
+observability
+docs
+*.tf
+*.tfvars
+sample-app-*.tgz

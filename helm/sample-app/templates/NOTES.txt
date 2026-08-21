@@ -1,0 +1,14 @@
+sample-app {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Check rollout status:
+  kubectl rollout status deployment/{{ include "sample-app.fullname" . }} -n {{ .Release.Namespace }}
+
+{{- if .Values.ingress.enabled }}
+Reachable at:
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}
+{{- end }}
+{{- else }}
+Port-forward to test locally:
+  kubectl port-forward svc/{{ include "sample-app.fullname" . }} 8000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+{{- end }}

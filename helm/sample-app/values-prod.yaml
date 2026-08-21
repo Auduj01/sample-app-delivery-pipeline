@@ -1,0 +1,32 @@
+# Overrides applied on top of values.yaml for the production environment.
+# This is the file the CI "update-gitops" job patches (image.tag) on every
+# deploy — ArgoCD watches it and reconciles the cluster automatically.
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/auduj01/realtime-project-06
+  tag: "sha-REPLACED_BY_CI"
+
+ingress:
+  hosts:
+    - host: sample-app.mydomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: sample-app-tls
+      hosts:
+        - sample-app.mydomain.com
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+autoscaling:
+  minReplicas: 3
+  maxReplicas: 10

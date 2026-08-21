@@ -1,0 +1,17 @@
+# Requires cert-manager installed (see docs/GUIDE.md Step 8). Issues free
+# TLS certs from Let's Encrypt via HTTP-01 challenge routed through the
+# ingress-nginx controller. Referenced by helm values.ingress.annotations.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: you@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
