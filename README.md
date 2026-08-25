@@ -11,6 +11,44 @@ terse and copy-pasteable. If a command here and the guide ever disagree,
 this README is the one to trust (it was verified against the actual files in
 this repo).
 
+## Problem this solves
+
+Manual deploys don't scale past the first few releases: someone SSHes in,
+copies a jar, restarts a service, and hopes nothing regressed. There's no
+audit trail, no automatic security check, and no easy rollback. This repo
+removes every one of those manual steps for a Spring Boot service — every
+merge to `main` is automatically tested, containerised, scanned for known
+CVEs, signed, and deployed via GitOps, so "did we deploy the reviewed code,
+unmodified, with a known-clean dependency tree" always has a checkable
+answer instead of a "trust me."
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Dev([Developer]) -->|git push / PR| CI[GitHub Actions]
+    CI -->|mvn verify| Test[Unit tests + JaCoCo]
+    Test --> Build[Docker build]
+    Build --> Scan{Trivy scan}
+    Scan -->|CRITICAL/HIGH found| Fail[["Pipeline fails\n(image never pushed)"]]
+    Scan -->|clean| Push[Push image to GHCR]
+    Push --> Sign[Cosign keyless sign]
+    Sign --> Bump[Bump image tag in GitOps repo]
+    Bump -.watched by.-> ArgoCD
+    ArgoCD -->|sync| K8s[Kubernetes: Helm release]
+    K8s --> Ingress[Ingress + TLS]
+    K8s --> Prom[Prometheus / Grafana]
+    K8s --> Loki[Fluent Bit → Loki]
+```
+
+The app repo (this one) never holds cluster credentials and the pipeline
+never talks to the cluster directly — it only ever writes a new image tag to
+a separate GitOps repo. ArgoCD is the only thing with cluster write access,
+and it only acts on what's committed in git. That indirection is deliberate:
+it means every production change has a corresponding git commit, and a
+compromised CI token can push a bad image tag reference at worst, not touch
+the cluster.
+
 ---
 
 ## 0. Repository layout
@@ -117,7 +155,7 @@ parentheses.
 1. **App repo**: `Auduj01/sample-app-delivery-pipeline`
    (referenced in `.github/workflows/ci-cd.yml` line `repository:
    Auduj01/sample-app-delivery-pipeline-gitops`, and in `helm/sample-app/values.yaml` /
-   `values-prod.yaml` as `image.repository: ghcr.io/auduj01/realtime-project-06`)
+   `values-prod.yaml` as `image.repository: ghcr.io/auduj01/sample-app-delivery-pipeline`)
    — push the contents of this bundle here.
 
 2. **GitOps repo**: `Auduj01/sample-app-delivery-pipeline-gitops`
@@ -198,7 +236,7 @@ Do **not** use a classic PAT with broader scope than necessary, and never
 commit this token to any file.
 
 ### 4.4 GHCR package visibility
-The first push creates a package at `ghcr.io/<owner>/realtime-project-06`.
+The first push creates a package at `ghcr.io/<owner>/sample-app-delivery-pipeline`.
 By default new GHCR packages linked to a repo inherit its visibility. If
 your app repo is private, either keep the package private (and set up an
 `imagePullSecret`, Section 8.1) or make the package public: package page on
@@ -229,7 +267,7 @@ Merge the PR to `main`. This triggers, in order:
 2. `build-scan-push` (needs `test` to pass):
    - Builds the image (not yet pushed) tagged `sha-<commit>` and (on `main`) `latest`.
    - Scans it with Trivy; **fails the whole job on any CRITICAL/HIGH CVE** and uploads SARIF to the repo's Security tab.
-   - Only if the scan passes: pushes the image to `ghcr.io/<owner>/realtime-project-06`.
+   - Only if the scan passes: pushes the image to `ghcr.io/<owner>/sample-app-delivery-pipeline`.
    - Signs the pushed image keylessly with `cosign` (uses GitHub OIDC — no key management).
 3. `update-gitops` (needs `build-scan-push`, only on `main`): checks out the GitOps repo with `GITOPS_PAT`, runs `yq -i ".image.tag = \"sha-<sha>\"" apps/sample-app/values-prod.yaml`, commits, and pushes.
 
@@ -243,7 +281,7 @@ gh run view --log   # inspect the latest run in detail
 Confirm the image landed in GHCR:
 
 ```bash
-docker pull ghcr.io/<owner>/realtime-project-06:sha-<the-commit-sha>
+docker pull ghcr.io/<owner>/sample-app-delivery-pipeline:sha-<the-commit-sha>
 ```
 
 Confirm the GitOps repo was updated:
@@ -598,3 +636,92 @@ kubectl -n sample-app rollout undo deployment/sample-app
 - If a secret was ever committed to git history (even briefly, even to a
   private repo), treat it as compromised and rotate it — do not just delete
   the file in a follow-up commit.
+
+---
+
+## 15. Known limitations
+
+Stated plainly, not hidden:
+
+- **The `test` and `build-scan-push` jobs have been verified locally**
+  end-to-end (`mvn -B clean verify`, `docker build`, container run against
+  `/actuator/health` and `/actuator/prometheus`, and a Trivy scan with the
+  exact flags CI uses — all pass with 0 HIGH/CRITICAL findings as of the
+  dependency versions pinned in `pom.xml`). The **`update-gitops` → ArgoCD →
+  live cluster** leg of the loop has **not** been run against a real
+  cluster — it depends on the GitOps repo and `GITOPS_PAT` secret described
+  in Section 4.3, which are environment-specific setup, not something this
+  bundle can pre-verify for you.
+- Only one environment (`values-prod.yaml`) is defined — there's no staging
+  values file or promotion gate between environments.
+- Testing is unit-level only (JUnit + MockMvc) plus an image vulnerability
+  scan. There's no integration or end-to-end test against a running
+  instance, and no load testing has been done against the HPA thresholds in
+  `helm/sample-app/values.yaml`.
+- The HPA and PodDisruptionBudget are configured but unexercised — nothing
+  in this repo proves the service actually survives a node drain or a
+  traffic spike; that would need a deliberate failure drill against a real
+  cluster.
+- No NetworkPolicy restricts pod-to-pod traffic inside the `sample-app`
+  namespace — anything else in the cluster can currently reach it.
+- Grafana ships with the community `kube-prometheus-stack` default
+  dashboards; no custom dashboard for this specific service's metrics is
+  checked into this repo yet.
+
+## 16. Future improvements
+
+- A staging `values-staging.yaml` plus a manual-approval step before
+  promoting an image tag to `values-prod.yaml`.
+- Policy-as-code (OPA/Conftest or `tfsec`/`checkov`-equivalent for Helm
+  output) run in CI before deploy, not just a Trivy image scan.
+- A custom Grafana dashboard (checked in as JSON) for this service's actual
+  SLIs — request rate, error rate, p99 latency — instead of relying on
+  generic JVM dashboards.
+- NetworkPolicies scoping ingress/egress per pod.
+- A scheduled synthetic check (a small GitHub Action hitting
+  `/actuator/health` from outside the cluster on a cron) as a cheap external
+  uptime signal independent of in-cluster monitoring.
+- A documented chaos/failure drill (kill a pod, drain a node) with the
+  before/after Grafana screenshots kept in `docs/`.
+
+## 17. Cost considerations
+
+- **Local (`kind`)**: $0 — the entire stack in Section 7 Option A runs on a
+  laptop.
+- **Cloud (EKS/GKE/AKS)**: the dominant costs are the managed control plane
+  (~US$70–75/mo for EKS alone), 2–3 worker nodes sized for
+  `kube-prometheus-stack` + the app (a `t3.medium`-class node runs roughly
+  US$25–35/mo each on-demand), and one cloud load balancer for
+  `ingress-nginx` (~US$18–25/mo on AWS). Prometheus/Loki persistent volumes
+  add a small, size-dependent storage cost on top.
+- Nothing in this bundle auto-scales **nodes** — only **pods**, within the
+  `resources.requests`/`limits` already set in `values.yaml`. Runaway pod
+  cost is bounded by `autoscaling.maxReplicas: 10` in `values-prod.yaml`.
+- This stack is a demonstration of the pattern, not a workload meant to run
+  continuously — tear it down (Section 18) between uses rather than leaving
+  a cloud cluster running idle.
+
+## 18. Cleanup / destroy everything
+
+Reverse of Section 8, plus the bootstrap step from Section 9:
+
+```bash
+kubectl delete -f gitops/argocd/application.yaml
+helm uninstall kube-prometheus-stack -n monitoring
+helm uninstall loki -n logging
+helm uninstall fluent-bit -n logging
+helm uninstall ingress-nginx -n ingress-nginx
+helm uninstall cert-manager -n cert-manager
+kubectl delete namespace sample-app monitoring logging ingress-nginx cert-manager argocd
+
+# Local cluster:
+kind delete cluster --name sample-app-demo
+
+# Cloud cluster: destroy however it was provisioned
+# (e.g. `terraform destroy` if it came from aws-landing-zone-terraform).
+```
+
+Also, if this was a throwaway demo rather than something you're keeping
+running: revoke the `GITOPS_PAT` (GitHub → Settings → Developer settings →
+Personal access tokens) and delete or set the GHCR package to private
+(Section 4.4) so a stale public image doesn't linger.
