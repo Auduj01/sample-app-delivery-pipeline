@@ -166,6 +166,11 @@ jobs:
     needs: build-scan-push
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # continue-on-error: this job needs a GITOPS_PAT secret that hasn't
+    # been created yet (see README Section 4.3) -- non-blocking so a
+    # documented, pending setup step doesn't red the whole run over
+    # everything else (test/build/scan/sign/push) actually passing.
+    continue-on-error: true
     steps:
       - name: Checkout GitOps config repo
         uses: actions/checkout@v4
