@@ -67,6 +67,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # github.repository preserves the account's actual case (Auduj01), but
+      # OCI/Docker image references must be all-lowercase -- every reference
+      # built from env.IMAGE_NAME downstream depends on this being correct.
+      - name: Lowercase the image name
+        run: echo "IMAGE_NAME=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
