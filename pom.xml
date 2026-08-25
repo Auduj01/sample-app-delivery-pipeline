@@ -39,6 +39,22 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!--
+      Explicit overrides of transitive dependencies pulled in below the
+      versions bundled by spring-boot-starter-parent, to clear specific
+      CVEs Trivy flagged that the parent BOM hadn't picked up yet.
+    -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.22.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.26.1</version>
+    </dependency>
   </dependencies>
 
   <build>
