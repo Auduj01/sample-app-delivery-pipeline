@@ -54,6 +54,15 @@ jobs:
           path: target/site/jacoco/
 
   # -------------------------------------------------------------------------
+  # 1b. SECURITY GATE — secrets, IaC/Dockerfile misconfig, SBOM, pinned
+  #     Actions refs. Runs independently of test/build; see
+  #     github.com/Auduj01/pipeline-security-gate for what each check does.
+  # -------------------------------------------------------------------------
+  security-gate:
+    name: Security gate
+    uses: Auduj01/pipeline-security-gate/.github/workflows/security-gate.yml@main
+
+  # -------------------------------------------------------------------------
   # 2. BUILD + TAG + SCAN + PUSH — only after tests pass, only on main/tag
   # -------------------------------------------------------------------------
   build-scan-push:
