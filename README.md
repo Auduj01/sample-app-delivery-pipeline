@@ -1,4 +1,4 @@
-# RealTime-Project-06 — Production CI/CD Pipeline
+# sample-app-delivery-pipeline — Production CI/CD Pipeline
 
 A production-grade CI/CD pipeline for a Spring Boot ("sample-app") service:
 GitHub Actions (test → build → scan → tag → sign → push) → GitOps (ArgoCD) →
@@ -114,18 +114,18 @@ You need **two** repos. Names below match what's hardcoded in this bundle —
 either use these exact names or find/replace every occurrence listed in
 parentheses.
 
-1. **App repo**: `Auduj01/RealTime-Project-06`
+1. **App repo**: `Auduj01/sample-app-delivery-pipeline`
    (referenced in `.github/workflows/ci-cd.yml` line `repository:
-   Auduj01/RealTime-Project-06-gitops`, and in `helm/sample-app/values.yaml` /
+   Auduj01/sample-app-delivery-pipeline-gitops`, and in `helm/sample-app/values.yaml` /
    `values-prod.yaml` as `image.repository: ghcr.io/auduj01/realtime-project-06`)
    — push the contents of this bundle here.
 
-2. **GitOps repo**: `Auduj01/RealTime-Project-06-gitops`
+2. **GitOps repo**: `Auduj01/sample-app-delivery-pipeline-gitops`
    (referenced in `.github/workflows/ci-cd.yml` and `gitops/argocd/application.yaml`)
    — create it empty, then add this exact structure:
 
    ```
-   RealTime-Project-06-gitops/
+   sample-app-delivery-pipeline-gitops/
    └── apps/
        └── sample-app/
            └── values-prod.yaml
@@ -138,7 +138,7 @@ parentheses.
 If you use different GitHub usernames/repo names, update every reference:
 
 ```bash
-grep -rn "Auduj01\|auduj01\|RealTime-Project-06" \
+grep -rn "Auduj01\|auduj01\|sample-app-delivery-pipeline" \
   .github/workflows/ci-cd.yml \
   helm/sample-app/values.yaml \
   helm/sample-app/values-prod.yaml \
@@ -153,7 +153,7 @@ git init
 git add .
 git commit -m "Initial commit: production CI/CD pipeline"
 git branch -M main
-git remote add origin https://github.com/<you>/RealTime-Project-06.git
+git remote add origin https://github.com/<you>/sample-app-delivery-pipeline.git
 git push -u origin main
 ```
 
@@ -185,7 +185,7 @@ workflow runs in).
 1. Create a fine-grained PAT: GitHub → your avatar → **Settings → Developer
    settings → Personal access tokens → Fine-grained tokens → Generate new
    token**.
-   - Repository access: only `RealTime-Project-06-gitops`.
+   - Repository access: only `sample-app-delivery-pipeline-gitops`.
    - Permissions: **Contents: Read and write**.
    - Expiration: set a real expiry and calendar-remind yourself to rotate it.
 2. Copy the token immediately (shown once).
@@ -249,7 +249,7 @@ docker pull ghcr.io/<owner>/realtime-project-06:sha-<the-commit-sha>
 Confirm the GitOps repo was updated:
 
 ```bash
-git clone https://github.com/<you>/RealTime-Project-06-gitops.git /tmp/gitops-check
+git clone https://github.com/<you>/sample-app-delivery-pipeline-gitops.git /tmp/gitops-check
 cat /tmp/gitops-check/apps/sample-app/values-prod.yaml   # image.tag should be sha-<latest commit>
 ```
 

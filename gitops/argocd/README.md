@@ -1,6 +1,6 @@
 # GitOps config repo layout
 
-This `Application` points at a **separate** repo (`RealTime-Project-06-gitops`),
+This `Application` points at a **separate** repo (`sample-app-delivery-pipeline-gitops`),
 not the application source repo. Keeping them separate is deliberate:
 
 - The **app repo** (this one) owns code + Dockerfile + CI + the Helm chart
@@ -14,7 +14,7 @@ not the application source repo. Keeping them separate is deliberate:
 Expected layout of the gitops repo:
 
 ```
-RealTime-Project-06-gitops/
+sample-app-delivery-pipeline-gitops/
 └── apps/
     └── sample-app/
         ├── Chart.yaml            # or a `dependency` on the app repo's chart via a Helm repo

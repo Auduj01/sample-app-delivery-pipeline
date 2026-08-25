@@ -155,7 +155,7 @@ jobs:
       - name: Checkout GitOps config repo
         uses: actions/checkout@v4
         with:
-          repository: Auduj01/RealTime-Project-06-gitops
+          repository: Auduj01/sample-app-delivery-pipeline-gitops
           token: ${{ secrets.GITOPS_PAT }}
 
       - name: Bump image tag

@@ -1,6 +1,6 @@
 # Production-grade CI/CD, end to end — mentoring walkthrough
 
-**Worked example:** `RealTime-Project-06` (a Spring Boot / Maven "sample-app").
+**Worked example:** `sample-app-delivery-pipeline` (a Spring Boot / Maven "sample-app").
 **Goal:** by the end, you can point this exact sequence at any application —
 Node, Go, Python, whatever — and stand up the same pipeline.
 
@@ -68,10 +68,10 @@ forward.
 
 Two repos, not one, and this split is the backbone of everything after it:
 
-- **App repo** (`RealTime-Project-06`) — source code, `Dockerfile`, the CI
+- **App repo** (`sample-app-delivery-pipeline`) — source code, `Dockerfile`, the CI
   workflow, and the Helm chart *definition* (templates). CI runs here. It
   never has cluster credentials.
-- **GitOps repo** (`RealTime-Project-06-gitops`) — only rendered config:
+- **GitOps repo** (`sample-app-delivery-pipeline-gitops`) — only rendered config:
   `values-staging.yaml`, `values-prod.yaml`. ArgoCD watches here. It never
   runs a build.
 

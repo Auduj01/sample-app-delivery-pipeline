@@ -13,7 +13,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/Auduj01/RealTime-Project-06-gitops.git
+    repoURL: https://github.com/Auduj01/sample-app-delivery-pipeline-gitops.git
     targetRevision: main
     path: apps/sample-app
     helm:
