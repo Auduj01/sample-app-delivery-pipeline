@@ -1,0 +1,13 @@
+# Maven
+target/
+*.class
+
+# OS / editor
+.DS_Store
+.idea/
+*.iml
+.vscode/
+
+# Local env overrides — never commit real secret values
+.env
+*.local.yaml
