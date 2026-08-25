@@ -15,10 +15,14 @@ RUN mvn -B clean package -DskipTests
 # ---------------------------------------------------------------------------
 # Stage 2: Minimal runtime image
 # ---------------------------------------------------------------------------
-FROM eclipse-temurin:17-jre-alpine AS runtime
+# Ubuntu/Jammy, not Alpine: eclipse-temurin's *-jre-alpine tags only publish
+# an amd64 manifest (no arm64) as of this writing, so that base breaks any
+# build on Apple Silicon / arm64 CI runners. Jammy is genuinely multi-arch.
+FROM eclipse-temurin:17-jre-jammy AS runtime
 
 # Run as a non-root, unprivileged user (never run app containers as root)
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN addgroup --system spring \
+  && adduser --system --no-create-home --ingroup spring --disabled-login spring
 USER spring:spring
 
 WORKDIR /app
@@ -27,7 +31,7 @@ COPY --from=build --chown=spring:spring /workspace/target/*.jar app.jar
 # OCI labels make the image traceable back to source + commit in the registry
 ARG GIT_SHA=unknown
 ARG BUILD_DATE=unknown
-LABEL org.opencontainers.image.source="https://github.com/Auduj01/RealTime-Project-06" \
+LABEL org.opencontainers.image.source="https://github.com/Auduj01/sample-app-delivery-pipeline" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
